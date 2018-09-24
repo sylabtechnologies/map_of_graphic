@@ -12,9 +12,7 @@
 
 template<class K, class V> class interval_map
 {
-	friend void testtest();
-
-private:
+public:
 	std::map<K, V> m_map;
 
 public:
@@ -26,63 +24,41 @@ public:
 		return (--m_map.upper_bound(key))->second;
 	}
 
-	// the test
-	std::vector<V> fill_it()
+private:
+	inline V findLeftValue(typename std::map<K, V>::iterator itr)
 	{
-		std::vector<V> result(300);
-
-		auto indx = [](int i)->int { return i + 20; };
-
-		for (auto iter = m_map.begin(); iter != m_map.end(); ++iter)
-		{
-			int i = _MAX(static_cast<int>(iter->first), -20);
-			auto temp = iter; ++temp;
-
-			int lim;
-			if (temp != m_map.end())
-				lim = _MIN(static_cast<int>(temp->first), 280);
-			else
-				lim = 280;
-
-			while (i < lim)
-			{
-				int jj = indx(i);
-				result[indx(i)] = iter->second;
-				i++;
-			}
-		}
-
-		return result;
+		if (itr != m_map.begin()) --itr;	// ADJUST TO OVERWRITE M_MAP.BEGIN() IF NECESSARY
+		return itr->second;
 	}
 
-	// ***** THE RIGHT STUFF: BRUTE FORCE VECTOR 1-1 AND COMPARE
-	// *** SEPARATION OF EACH INTERVAL ADJUSTMENT A REALLY GOOD IDEA!?
+public:
 	void assign(K const& keyBegin, K const& keyEnd, V const& val)
 	{
-		std::map<K, V>::iterator iter_lo, iter_hi;
+		std::map<K, V>::iterator iterLower, iterUpper;
+		V leftValue, rightValue;
+		bool doNotExtend;
 
-		if (m_map.empty()) throw std::runtime_error("interval_map::assign failure");
+		if (!(keyBegin < keyEnd)) return;
 
-		// IT CANT BE EQUIVALENCE
-		if (!(keyBegin < keyEnd)) throw std::runtime_error("interval_map::assign invalid argument");
+		iterLower = m_map.lower_bound(keyBegin);
+		leftValue = findLeftValue(iterLower);
 
-		auto find_V = [](std::map<K, V>::iterator itr)->V { --itr; return itr->second; };
+		if (iterLower != m_map.end())
+		{
+			iterUpper = m_map.upper_bound(keyEnd);
+			rightValue = findLeftValue(iterUpper);
+			m_map.erase(iterLower, iterUpper);
+		}
+		else
+			rightValue = leftValue;		// WHY: project Z to the left, WORK Z EXPANSE
 
-		// find right interval
-		iter_hi = m_map.upper_bound(keyEnd);
-		V rval = find_V(iter_hi);
+		doNotExtend = (val != leftValue);
+		if (doNotExtend) m_map.emplace(keyBegin, val);
 
-		// find left interval
-		iter_lo = m_map.lower_bound(keyBegin);
-		V lval = find_V(iter_lo);
-
-		m_map.erase(iter_lo, iter_hi);
-
-		if (val != lval) m_map.emplace(keyBegin, val);
-
-		if (val != rval) m_map.emplace(keyEnd, rval);
+		// use std::numeric_limits<K>::max() as infinity
+		doNotExtend = (val != rightValue && keyEnd < std::numeric_limits<K>::max());
+		if (doNotExtend) m_map.emplace(keyEnd, rightValue);
 	}
-
 };
 
 
